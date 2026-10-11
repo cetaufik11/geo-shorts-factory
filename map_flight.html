@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1080px;
+    height: 1920px;
+    overflow: hidden;
+    background: #08101e; /* Deep ocean */
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #fff;
+    position: relative;
+  }
+
+  /* Ocean texture & Grid */
+  #ocean-bg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1080px; height: 1920px;
+    background: radial-gradient(circle at 50% 40%, #0e2038 0%, #060c17 100%);
+    z-index: 1;
+  }
+
+  /* Map Viewport & SVG */
+  #map-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1080px;
+    height: 1920px;
+    z-index: 2;
+  }
+
+  #world-svg {
+    width: 1080px;
+    height: 1920px;
+    overflow: visible;
+  }
+
+  #map-stage {
+    transform-origin: 0 0;
+    transition: transform 1.7s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  /* Ocean Graticule Lines */
+  .graticule {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.05);
+    stroke-width: 1px;
+  }
+
+  /* All Countries - CLEARLY VISIBLE WITH DISTINCT BORDERS */
+  .country {
+    fill: #22334a; /* Clearly visible slate landmass */
+    stroke: #4d6685; /* Clearly defined borders between all nations */
+    stroke-width: 1.8px;
+    stroke-linejoin: round;
+    transition: fill 0.7s ease, stroke 0.7s ease, filter 0.7s ease;
+  }
+
+  /* Highlight Japan */
+  .country.highlight-jp {
+    fill: #ff4757 !important;
+    stroke: #ffffff !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 35px #ff4757) drop-shadow(0 0 15px #ff6b81);
+  }
+
+  /* Highlight Germany */
+  .country.highlight-de {
+    fill: #2ed573 !important;
+    stroke: #ffffff !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 35px #2ed573) drop-shadow(0 0 15px #7bed9f);
+  }
+
+  /* Flight Trajectory Arc */
+  .flight-arc {
+    fill: none;
+    stroke: #ffd32a;
+    stroke-width: 5px;
+    stroke-dasharray: 14 10;
+    filter: drop-shadow(0 0 20px #ffd32a);
+    animation: dashAnim 1.5s linear infinite;
+  }
+  @keyframes dashAnim {
+    to { stroke-dashoffset: -48; }
+  }
+
+  /* Beacons on Cities */
+  .city-beacon {
+    r: 14;
+    stroke-width: 4;
+    stroke: #fff;
+  }
+  .city-beacon.jp { fill: #ff4757; filter: drop-shadow(0 0 25px #ff4757); }
+  .city-beacon.de { fill: #ffa502; filter: drop-shadow(0 0 25px #ffa502); }
+
+  /* Country Text Labels on Map */
+  .map-label {
+    font-size: 26px;
+    font-weight: 800;
+    fill: #8ca3be;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+    pointer-events: none;
+    text-anchor: middle;
+  }
+
+  /* UI Layer (HUD, Cards, Text) */
+  .ui-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1080px; height: 1920px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 90px 60px;
+    pointer-events: none;
+  }
+
+  /* Top Category Pill */
+  .top-badge-wrap { text-align: center; }
+  .top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 50px;
+    border-radius: 50px;
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #ff4757, #ff6b81);
+    box-shadow: 0 10px 40px rgba(255, 71, 87, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+  }
+
+  /* Floating HUD Info Panel */
+  .hud-panel {
+    width: 100%;
+    min-height: 480px;
+    background: rgba(10, 18, 32, 0.82);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-radius: 40px;
+    padding: 40px 50px;
+    backdrop-filter: blur(35px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transform: translateY(40px);
+    opacity: 0;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .hud-panel.active {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .hud-panel.winner {
+    background: linear-gradient(135deg, rgba(46, 213, 115, 0.25), rgba(10, 18, 32, 0.9));
+    border-color: #2ed573;
+    box-shadow: 0 0 75px rgba(46, 213, 115, 0.5);
+  }
+
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .hud-country {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .hud-flag {
+    width: 150px;
+    height: 100px;
+    border-radius: 16px;
+    object-fit: cover;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  }
+  .hud-title {
+    font-size: 58px;
+    font-weight: 900;
+    letter-spacing: 1px;
+  }
+  .hud-badge {
+    padding: 10px 28px;
+    border-radius: 18px;
+    font-size: 30px;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+  }
+  .hud-panel.winner .hud-badge {
+    background: #2ed573;
+    color: #05070e;
+    font-weight: 900;
+    box-shadow: 0 0 25px rgba(46, 213, 115, 0.7);
+  }
+
+  .hud-body {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  .hud-stat-lbl {
+    font-size: 34px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .hud-stat-val {
+    font-size: 84px;
+    font-weight: 900;
+    font-family: 'Arial Black', Impact, sans-serif;
+    color: #ffffff;
+    letter-spacing: -1px;
+  }
+  .hud-panel.winner .hud-stat-val {
+    color: #2ed573;
+    text-shadow: 0 0 40px rgba(46, 213, 115, 0.6);
+  }
+
+  .hud-bar-bg {
+    width: 100%;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 24px;
+  }
+  .hud-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #1e90ff, #70a1ff);
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hud-panel.winner .hud-bar-fill {
+    background: linear-gradient(90deg, #2ed573, #7bed9f);
+    box-shadow: 0 0 20px rgba(46, 213, 115, 0.8);
+  }
+
+  /* Bottom Viral Subtitle Bar */
+  .bottom-sub-bar {
+    background: rgba(6, 12, 22, 0.8);
+    border: 3px solid rgba(255, 211, 42, 0.7);
+    border-radius: 32px;
+    padding: 30px 40px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+    backdrop-filter: blur(25px);
+  }
+  .sub-text {
+    font-size: 46px;
+    font-weight: 900;
+    color: #ffd32a;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 15px rgba(0,0,0,0.9);
+  }
+
+  /* Confetti Canvas */
+  #confetti-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1080px; height: 1920px;
+    z-index: 20;
+    pointer-events: none;
+  }
+</style>
+<script src="assets/d3.min.js"></script>
+<script src="assets/countries_data.js"></script>
+</head>
+<body>
+
+<div id="ocean-bg"></div>
+<canvas id="confetti-canvas"></canvas>
+
+<div id="map-container">
+  <svg id="world-svg" viewBox="0 0 1080 1920">
+    <g id="map-stage">
+      <!-- Countries Layer with Clear Landmass & Distinct Borders -->
+      <g id="countries-layer"></g>
+      <!-- Country Labels for Neighbors -->
+      <g id="labels-layer"></g>
+      <!-- Trajectory Arc -->
+      <path id="flight-arc" class="flight-arc"></path>
+      <!-- Tokyo Beacon -->
+      <circle id="beacon-tokyo" class="city-beacon jp" cx="2126.5" cy="946.2"></circle>
+      <!-- Berlin Beacon -->
+      <circle id="beacon-berlin" class="city-beacon de" cx="1288.8" cy="789.4"></circle>
+    </g>
+  </svg>
+</div>
+
+<div class="ui-layer">
+  <!-- Top Category Pill -->
+  <div class="top-badge-wrap">
+    <div id="badge-text" class="top-badge">🌍 CONTINENTAL FLIGHT 🌍</div>
+  </div>
+
+  <!-- Floating HUD Info Card -->
+  <div style="flex: 1; display: flex; align-items: flex-end; margin-bottom: 40px;">
+    <div id="hud-panel" class="hud-panel active">
+      <div class="hud-header">
+        <div class="hud-country">
+          <img id="hud-flag" src="assets/flag_japan.png" class="hud-flag" />
+          <div id="hud-name" class="hud-title">JAPAN vs GERMANY</div>
+        </div>
+        <div id="hud-badge" class="hud-badge">GLOBAL ARENA</div>
+      </div>
+      <div class="hud-body">
+        <div id="hud-stat-lbl" class="hud-stat-lbl">Target: Eurasia Flight</div>
+        <div id="hud-stat-val" class="hud-stat-val">BATTLE</div>
+      </div>
+      <div class="hud-bar-bg">
+        <div id="hud-bar-fill" class="hud-bar-fill" style="width: 100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subtitle Bar -->
+  <div class="bottom-sub-bar">
+    <div id="sub-text" class="sub-text">Which country actually gives you a better life?</div>
+  </div>
+</div>
+
+<script>
+  // Render SVG World Map with D3
+  const width = 2400, height = 2400;
+  const projection = d3.geoMercator().scale(380).translate([1200, 1200]);
+  const pathGen = d3.geoPath().projection(projection);
+
+  const countriesLayer = d3.select('#countries-layer');
+  countriesLayer.selectAll('path')
+    .data(geoData.features)
+    .enter()
+    .append('path')
+    .attr('class', 'country')
+    .attr('id', d => 'c-' + (d.properties.iso_a2 || d.properties.name))
+    .attr('d', pathGen);
+
+  // Add Neighbor Labels (China, Korea, Russia, France, Poland, UK)
+  const labelData = [
+    { name: "CHINA", coords: [104, 35] },
+    { name: "KOREA", coords: [127.7, 36.5] },
+    { name: "RUSSIA", coords: [95, 60] },
+    { name: "FRANCE", coords: [2.2, 46.2] },
+    { name: "POLAND", coords: [19.1, 51.9] },
+    { name: "UNITED KINGDOM", coords: [-3.4, 55.3] },
+    { name: "ITALY", coords: [12.5, 41.8] }
+  ];
+
+  const labelsLayer = d3.select('#labels-layer');
+  labelData.forEach(l => {
+    const pt = projection(l.coords);
+    if (pt) {
+      labelsLayer.append('text')
+        .attr('class', 'map-label')
+        .attr('x', pt[0])
+        .attr('y', pt[1])
+        .text(l.name);
+    }
+  });
+
+  // Curved Flight Arc Path (Tokyo to Berlin)
+  const tokyo = [2126.5, 946.2];
+  const berlin = [1288.8, 789.4];
+  const ctrl = [(tokyo[0] + berlin[0])/2, Math.min(tokyo[1], berlin[1]) - 250];
+  const arcD = `M ${tokyo[0]} ${tokyo[1]} Q ${ctrl[0]} ${ctrl[1]} ${berlin[0]} ${berlin[1]}`;
+  document.getElementById('flight-arc').setAttribute('d', arcD);
+
+  // Camera Flight Helper
+  const mapStage = document.getElementById('map-stage');
+  function flyCamera(tx, ty, scale) {
+    mapStage.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  }
+
+  // Highlight Country Helper
+  function highlightCountry(code) {
+    document.querySelectorAll('.country').forEach(el => {
+      el.classList.remove('highlight-jp', 'highlight-de');
+    });
+    if(code === 'JP') {
+      const el = document.getElementById('c-JP');
+      if(el) el.classList.add('highlight-jp');
+    } else if(code === 'DE') {
+      const el = document.getElementById('c-DE');
+      if(el) el.classList.add('highlight-de');
+    }
+  }
+
+  // HUD Update Helper
+  function updateHud(flagSrc, name, badgeText, statLbl, statVal, barPercent, isWinner=false) {
+    const p = document.getElementById('hud-panel');
+    p.classList.remove('active');
+    setTimeout(() => {
+      document.getElementById('hud-flag').src = flagSrc;
+      document.getElementById('hud-name').textContent = name;
+      document.getElementById('hud-badge').textContent = badgeText;
+      document.getElementById('hud-stat-lbl').textContent = statLbl;
+      document.getElementById('hud-stat-val').textContent = statVal;
+      document.getElementById('hud-bar-fill').style.width = barPercent;
+      if(isWinner) {
+        p.classList.add('winner');
+      } else {
+        p.classList.remove('winner');
+      }
+      p.classList.add('active');
+    }, 250);
+  }
+
+  // Confetti Blast
+  const cCanvas = document.getElementById('confetti-canvas');
+  const cCtx = cCanvas.getContext('2d');
+  cCanvas.width = 1080; cCanvas.height = 1920;
+  let confetti = [];
+  function blastConfetti() {
+    confetti = [];
+    const colors = ['#2ed573', '#7bed9f', '#ffd32a', '#ffffff', '#70a1ff'];
+    for(let i=0; i<100; i++) {
+      confetti.push({
+        x: 540 + (Math.random()-0.5)*400, y: 1100 + (Math.random()-0.5)*200,
+        vx: (Math.random()-0.5)*22, vy: -Math.random()*22 - 6,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        size: Math.random()*14 + 6, alpha: 1, rot: Math.random()*360
+      });
+    }
+  }
+  function drawConfetti() {
+    cCtx.clearRect(0,0,1080,1920);
+    confetti.forEach((c, i) => {
+      c.x += c.vx; c.y += c.vy; c.vy += 0.7; c.alpha -= 0.016; c.rot += 10;
+      if(c.alpha > 0) {
+        cCtx.save();
+        cCtx.translate(c.x, c.y);
+        cCtx.rotate((c.rot * Math.PI)/180);
+        cCtx.fillStyle = c.color;
+        cCtx.globalAlpha = Math.max(0, c.alpha);
+        cCtx.fillRect(-c.size/2, -c.size/2, c.size, c.size*1.4);
+        cCtx.restore();
+      } else {
+        confetti.splice(i, 1);
+      }
+    });
+    requestAnimationFrame(drawConfetti);
+  }
+  drawConfetti();
+
+  // Initial Position: Overview Eurasia
+  flyCamera(-911, 7, 0.85);
+
+  // --- ORCHESTRATED TIMELINE ---
+  // 0.0s: Scene 1 (Hook) - Wide Eurasian View
+  // 4.63s: Scene 2 (Salary)
+  setTimeout(() => {
+    flyCamera(-4564, -1571, 2.4);
+    highlightCountry('JP');
+    document.getElementById('badge-text').textContent = '💰 ROUND 1: SALARY 💰';
+    document.getElementById('sub-text').textContent = 'Japan averages thirty-two hundred dollars!';
+    updateHud('assets/flag_japan.png', 'JAPAN 🇯🇵', 'MONTHLY NET', 'Average Income', '$3,200', '71%');
+  }, 4630);
+
+  //   - 7.43s: Camera glides across continents to GERMANY!
+  setTimeout(() => {
+    flyCamera(-2811, -1352, 2.6);
+    highlightCountry('DE');
+    document.getElementById('sub-text').textContent = 'Germany takes the lead with $4,500!';
+    updateHud('assets/flag_germany.png', 'GERMANY 🇩🇪', '🏆 WINNER', 'Average Income', '$4,500', '100%', true);
+    blastConfetti();
+  }, 7430);
+
+  // 12.77s: Scene 3 (Work-Life Balance)
+  setTimeout(() => {
+    flyCamera(-4564, -1571, 2.4);
+    highlightCountry('JP');
+    document.getElementById('badge-text').textContent = '⏰ ROUND 2: WORK-LIFE ⏰';
+    document.getElementById('sub-text').textContent = 'Japan clocks in over 1,600 hours a year!';
+    updateHud('assets/flag_japan.png', 'JAPAN 🇯🇵', 'WORKLOAD', 'Annual Working Hours', '1,607 hrs', '100%');
+  }, 12770);
+
+  //   - 15.77s: Camera glides across continent to GERMANY!
+  setTimeout(() => {
+    flyCamera(-2811, -1352, 2.6);
+    highlightCountry('DE');
+    document.getElementById('sub-text').textContent = 'Germans work 260 fewer hours per year!';
+    updateHud('assets/flag_germany.png', 'GERMANY 🇩🇪', '🏆 WINNER', 'Annual Working Hours', '1,341 hrs', '83%', true);
+    blastConfetti();
+  }, 15770);
+
+  // 22.06s: Scene 4 (Safety)
+  setTimeout(() => {
+    flyCamera(-2811, -1352, 2.6);
+    highlightCountry('DE');
+    document.getElementById('badge-text').textContent = '🛡️ ROUND 3: SAFETY 🛡️';
+    document.getElementById('sub-text').textContent = 'Germany ranks #20 in global safety!';
+    updateHud('assets/flag_germany.png', 'GERMANY 🇩🇪', 'GLOBAL RANK', 'Safety Index', '#20', '65%');
+  }, 22060);
+
+  //   - 24.66s: Camera glides across to JAPAN!
+  setTimeout(() => {
+    flyCamera(-4564, -1571, 2.4);
+    highlightCountry('JP');
+    document.getElementById('sub-text').textContent = 'Japan destroys Germany with ultra-low crime rate!';
+    updateHud('assets/flag_japan.png', 'JAPAN 🇯🇵', '🏆 WINNER (TOP 10)', 'Safety Index', '#9', '95%', true);
+    blastConfetti();
+  }, 24660);
+
+  // 29.91s: Scene 5 (Final Verdict)
+  setTimeout(() => {
+    flyCamera(-911, 7, 0.85);
+    highlightCountry('');
+    document.getElementById('badge-text').textContent = '🔥 FINAL VERDICT 🔥';
+    document.getElementById('sub-text').textContent = 'Which country are you picking? Comment below!';
+    updateHud('assets/flag_japan.png', 'WHERE WOULD YOU LIVE?', 'VOTE BELOW', 'A: Japan vs B: Germany', 'YOUR CHOICE', '50%');
+  }, 29910);
+</script>
+
+</body>
+</html>

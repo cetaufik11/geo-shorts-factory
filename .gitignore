@@ -1,0 +1,35 @@
+# Output videos and temporary render directories
+output_batch/
+output/
+output_animated/
+frames/
+rec_*/
+temp_*/
+test_record/
+test_rec_flight/
+*.mp4
+*.webm
+*.wav
+
+# Audio temp
+audio/*.wav
+audio/*.mp3
+!bgm.mp3
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Credentials & secrets
+.env
+credentials.json
+token.json
+service_account.json
+
+# IDE
+.vscode/
+.idea/

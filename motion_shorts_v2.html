@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1080px;
+    height: 1920px;
+    overflow: hidden;
+    background: #070a13;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #fff;
+    position: relative;
+  }
+
+  /* Canvas Layers */
+  #bg-canvas, #confetti-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1080px; height: 1920px;
+  }
+  #bg-canvas { z-index: 1; }
+  #confetti-canvas { z-index: 10; pointer-events: none; }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    width: 1080px;
+    height: 1920px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 90px 60px;
+  }
+
+  /* Top Category Pill */
+  .top-badge-wrap {
+    text-align: center;
+  }
+  .top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 50px;
+    border-radius: 50px;
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #ff4757, #ff6b81);
+    box-shadow: 0 10px 40px rgba(255, 71, 87, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  }
+
+  /* Dynamic Center Stage */
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    min-height: 1250px;
+  }
+
+  .scene {
+    position: absolute;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(60px) scale(0.95);
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .scene.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  /* --- SCENE 1: THE HOOK WITH MAPS & EMBLEMS --- */
+  .hook-title {
+    font-size: 84px;
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+    text-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  }
+  .hook-sub {
+    font-size: 42px;
+    color: #ffd32a;
+    font-weight: 800;
+    margin-bottom: 50px;
+    text-shadow: 0 0 20px rgba(255, 211, 42, 0.5);
+  }
+
+  .arena-grid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 20px;
+  }
+
+  .country-pod {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-radius: 40px;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    backdrop-filter: blur(25px);
+  }
+
+  /* Map Container with Radar */
+  .map-wrap {
+    width: 320px;
+    height: 320px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .map-img {
+    width: 280px;
+    height: 280px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 25px rgba(255, 71, 87, 0.6));
+    animation: floatMap 4s ease-in-out infinite alternate;
+  }
+  .map-img.de {
+    filter: drop-shadow(0 0 25px rgba(255, 165, 2, 0.6));
+  }
+
+  /* GPS Ping Beacon on Map */
+  .radar-beacon {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #ff4757;
+    box-shadow: 0 0 20px #ff4757;
+  }
+  .beacon-ping {
+    position: absolute;
+    top: -15px; left: -15px;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    border: 3px solid #ff4757;
+    animation: pingCircle 1.8s infinite;
+  }
+  .radar-beacon.de {
+    background: #ffa502;
+    box-shadow: 0 0 20px #ffa502;
+  }
+  .radar-beacon.de .beacon-ping {
+    border-color: #ffa502;
+  }
+
+  .pod-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .emblem-icon {
+    width: 60px;
+    height: 70px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+  }
+  .pod-flag {
+    width: 140px;
+    height: 92px;
+    border-radius: 14px;
+    object-fit: cover;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  }
+  .pod-name {
+    font-size: 46px;
+    font-weight: 900;
+    margin-top: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* VS Center Lightning Badge */
+  .vs-badge {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffa502, #ff4757);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 900;
+    box-shadow: 0 0 50px rgba(255, 165, 2, 0.8);
+    border: 4px solid #fff;
+    animation: pulseVs 1.5s infinite;
+    z-index: 5;
+  }
+
+  /* --- COMPARISON CARD STYLES --- */
+  .card {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 3px solid rgba(255, 255, 255, 0.12);
+    border-radius: 36px;
+    padding: 36px 45px;
+    margin-bottom: 35px;
+    backdrop-filter: blur(30px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+
+  /* Hologram Map Watermark in Background of Card */
+  .card-map-watermark {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 320px;
+    height: 320px;
+    opacity: 0.12;
+    pointer-events: none;
+    object-fit: contain;
+    filter: blur(0.5px);
+    transition: all 0.5s ease;
+  }
+
+  .card.winner {
+    background: linear-gradient(135deg, rgba(46, 213, 115, 0.18), rgba(46, 213, 115, 0.06));
+    border-color: #2ed573;
+    box-shadow: 0 0 60px rgba(46, 213, 115, 0.45);
+    transform: scale(1.035);
+  }
+  .card.winner .card-map-watermark {
+    opacity: 0.28;
+    filter: drop-shadow(0 0 20px #2ed573);
+  }
+
+  .card-left {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    z-index: 2;
+  }
+  .card-flag-box {
+    position: relative;
+  }
+  .card-flag {
+    width: 170px;
+    height: 115px;
+    border-radius: 18px;
+    object-fit: cover;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+  .card-emblem-badge {
+    position: absolute;
+    bottom: -15px;
+    right: -15px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #111a28;
+    border: 2px solid #fdcb6e;
+    padding: 6px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  }
+
+  .card-info h3 {
+    font-size: 50px;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+  .badge-tag {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 16px;
+    font-size: 26px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.1);
+    color: #a4b0be;
+  }
+  .card.winner .badge-tag {
+    background: #2ed573;
+    color: #070a13;
+    font-weight: 900;
+    box-shadow: 0 0 20px rgba(46, 213, 115, 0.6);
+  }
+
+  .card-right {
+    text-align: right;
+    z-index: 2;
+  }
+  .stat-value {
+    font-size: 72px;
+    font-weight: 900;
+    font-family: 'Arial Black', Impact, sans-serif;
+    color: #fff;
+    letter-spacing: -1px;
+  }
+  .card.winner .stat-value {
+    color: #2ed573;
+    text-shadow: 0 0 35px rgba(46, 213, 115, 0.6);
+  }
+  .stat-sub {
+    font-size: 28px;
+    color: #747d8c;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  .bar-container {
+    width: 100%;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 18px;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #1e90ff, #70a1ff);
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card.winner .bar-fill {
+    background: linear-gradient(90deg, #2ed573, #7bed9f);
+    box-shadow: 0 0 15px rgba(46, 213, 115, 0.8);
+  }
+
+  /* Subtitle Bar at Bottom */
+  .bottom-sub-bar {
+    background: rgba(0, 0, 0, 0.75);
+    border: 3px solid rgba(255, 211, 42, 0.6);
+    border-radius: 32px;
+    padding: 30px 40px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    backdrop-filter: blur(20px);
+  }
+  .sub-text {
+    font-size: 46px;
+    font-weight: 900;
+    color: #ffd32a;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 15px rgba(0,0,0,0.9);
+  }
+
+  /* Keyframes */
+  @keyframes floatMap {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-12px) rotate(1.5deg); }
+  }
+  @keyframes pingCircle {
+    0% { transform: scale(0.6); opacity: 1; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes pulseVs {
+    0% { transform: scale(1); box-shadow: 0 0 20px rgba(255, 165, 2, 0.5); }
+    50% { transform: scale(1.15); box-shadow: 0 0 65px rgba(255, 71, 87, 0.9); }
+    100% { transform: scale(1); box-shadow: 0 0 20px rgba(255, 165, 2, 0.5); }
+  }
+  @keyframes bounceIn {
+    0% { opacity: 0; transform: translateY(-80px) scale(0.8); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="confetti-canvas"></canvas>
+
+<div class="container">
+  <!-- Top Category Pill -->
+  <div class="top-badge-wrap">
+    <div id="badge-text" class="top-badge">🌍 GLOBAL BATTLE 🌍</div>
+  </div>
+
+  <!-- Dynamic Center Stage -->
+  <div class="stage">
+    
+    <!-- Scene 1: The Hook with Glowing Country Maps & Emblems -->
+    <div id="scene-1" class="scene active">
+      <h1 class="hook-title">JAPAN vs GERMANY</h1>
+      <p class="hook-sub">Who REALLY Has a Better Life?</p>
+      
+      <div class="arena-grid">
+        <!-- Japan Pod -->
+        <div class="country-pod">
+          <div class="map-wrap">
+            <img src="assets/map_jp_neon.svg" class="map-img" />
+            <!-- Tokyo GPS Beacon (approx center-east) -->
+            <div class="radar-beacon" style="top: 145px; left: 165px;">
+              <div class="beacon-ping"></div>
+            </div>
+          </div>
+          <div class="pod-header">
+            <img src="assets/flag_japan.png" class="pod-flag" />
+            <img src="assets/seal_jp.svg" class="emblem-icon" />
+          </div>
+          <div class="pod-name">JAPAN 🇯🇵</div>
+        </div>
+
+        <!-- VS Badge in middle -->
+        <div class="vs-badge">VS</div>
+
+        <!-- Germany Pod -->
+        <div class="country-pod">
+          <div class="map-wrap">
+            <img src="assets/map_de_neon.svg" class="map-img de" />
+            <!-- Berlin GPS Beacon (approx north-east) -->
+            <div class="radar-beacon de" style="top: 100px; left: 190px;">
+              <div class="beacon-ping"></div>
+            </div>
+          </div>
+          <div class="pod-header">
+            <img src="assets/flag_germany.png" class="pod-flag" />
+            <img src="assets/emblem_de.svg" class="emblem-icon" />
+          </div>
+          <div class="pod-name">GERMANY 🇩🇪</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2: Salary -->
+    <div id="scene-2" class="scene">
+      <div id="card-s2-jp" class="card">
+        <img src="assets/map_jp_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_japan.png" class="card-flag" />
+            <img src="assets/seal_jp.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>JAPAN 🇯🇵</h3>
+            <span class="badge-tag">Average Net Salary</span>
+            <div class="bar-container"><div id="bar-s2-jp" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s2-jp">$0</div>
+          <div class="stat-sub">per month</div>
+        </div>
+      </div>
+
+      <div id="card-s2-de" class="card">
+        <img src="assets/map_de_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_germany.png" class="card-flag" />
+            <img src="assets/emblem_de.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>GERMANY 🇩🇪</h3>
+            <span id="badge-s2-de" class="badge-tag">Average Net Salary</span>
+            <div class="bar-container"><div id="bar-s2-de" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s2-de">$0</div>
+          <div class="stat-sub">per month</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3: Work-Life Balance -->
+    <div id="scene-3" class="scene">
+      <div id="card-s3-jp" class="card">
+        <img src="assets/map_jp_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_japan.png" class="card-flag" />
+            <img src="assets/seal_jp.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>JAPAN 🇯🇵</h3>
+            <span class="badge-tag">Annual Hours</span>
+            <div class="bar-container"><div id="bar-s3-jp" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s3-jp">0 hrs</div>
+          <div class="stat-sub">per year</div>
+        </div>
+      </div>
+
+      <div id="card-s3-de" class="card">
+        <img src="assets/map_de_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_germany.png" class="card-flag" />
+            <img src="assets/emblem_de.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>GERMANY 🇩🇪</h3>
+            <span id="badge-s3-de" class="badge-tag">Annual Hours</span>
+            <div class="bar-container"><div id="bar-s3-de" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s3-de">0 hrs</div>
+          <div class="stat-sub">per year</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 4: Safety & Crime -->
+    <div id="scene-4" class="scene">
+      <div id="card-s4-jp" class="card">
+        <img src="assets/map_jp_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_japan.png" class="card-flag" />
+            <img src="assets/seal_jp.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>JAPAN 🇯🇵</h3>
+            <span id="badge-s4-jp" class="badge-tag">Safety Ranking</span>
+            <div class="bar-container"><div id="bar-s4-jp" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s4-jp">#0</div>
+          <div class="stat-sub">Safest on Earth</div>
+        </div>
+      </div>
+
+      <div id="card-s4-de" class="card">
+        <img src="assets/map_de_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <div class="card-flag-box">
+            <img src="assets/flag_germany.png" class="card-flag" />
+            <img src="assets/emblem_de.svg" class="card-emblem-badge" />
+          </div>
+          <div class="card-info">
+            <h3>GERMANY 🇩🇪</h3>
+            <span class="badge-tag">Safety Ranking</span>
+            <div class="bar-container"><div id="bar-s4-de" class="bar-fill"></div></div>
+          </div>
+        </div>
+        <div class="card-right">
+          <div class="stat-value" id="val-s4-de">#0</div>
+          <div class="stat-sub">Safest on Earth</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 5: Call to Action -->
+    <div id="scene-5" class="scene">
+      <h1 class="hook-title" style="font-size:74px;margin-bottom:50px;">WHERE WOULD YOU LIVE?</h1>
+      <div class="card" style="margin-bottom:30px;">
+        <img src="assets/map_jp_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <img src="assets/flag_japan.png" class="card-flag" />
+          <img src="assets/seal_jp.svg" class="card-emblem-badge" />
+          <div class="card-info">
+            <h3>OPTION A: JAPAN 🇯🇵</h3>
+            <span class="badge-tag">Peace, Ultra-Safe & Culture</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:60px;">
+        <img src="assets/map_de_neon.svg" class="card-map-watermark" />
+        <div class="card-left">
+          <img src="assets/flag_germany.png" class="card-flag" />
+          <img src="assets/emblem_de.svg" class="card-emblem-badge" />
+          <div class="card-info">
+            <h3>OPTION B: GERMANY 🇩🇪</h3>
+            <span class="badge-tag">High Income & Work-Life</span>
+          </div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#ff4757,#ff6b81);padding:24px 70px;border-radius:30px;font-size:42px;font-weight:900;box-shadow:0 15px 50px rgba(255,71,87,0.6);border:2px solid #fff;">
+        👇 DROP YOUR VOTE IN COMMENTS! 👇
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Subtitle Bar -->
+  <div class="bottom-sub-bar">
+    <div id="sub-text" class="sub-text">Which country actually gives you a better life?</div>
+  </div>
+</div>
+
+<script>
+  // High-Tech Starfield & Cyber Grid Canvas
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 1080;
+  canvas.height = 1920;
+
+  const particles = [];
+  for (let i = 0; i < 90; i++) {
+    particles.push({
+      x: Math.random() * 1080,
+      y: Math.random() * 1920,
+      r: Math.random() * 3 + 1,
+      speedX: (Math.random() - 0.5) * 0.9,
+      speedY: (Math.random() - 0.5) * 0.9,
+      alpha: Math.random() * 0.6 + 0.2
+    });
+  }
+
+  function drawBg() {
+    ctx.clearRect(0, 0, 1080, 1920);
+    // Radial Vignette
+    let g = ctx.createRadialGradient(540, 960, 150, 540, 960, 950);
+    g.addColorStop(0, '#101726');
+    g.addColorStop(1, '#05070c');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    for(let x=0; x<1080; x+=70){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,1920); ctx.stroke(); }
+    for(let y=0; y<1920; y+=70){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(1080,y); ctx.stroke(); }
+
+    // Particles
+    particles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(112, 161, 255, ${p.alpha})`;
+      ctx.fill();
+      p.x += p.speedX; p.y += p.speedY;
+      if (p.x < 0) p.x = 1080; if (p.x > 1080) p.x = 0;
+      if (p.y < 0) p.y = 1920; if (p.y > 1920) p.y = 0;
+    });
+    requestAnimationFrame(drawBg);
+  }
+  drawBg();
+
+  // Confetti Blast on Winner Reveal
+  const confCanvas = document.getElementById('confetti-canvas');
+  const confCtx = confCanvas.getContext('2d');
+  confCanvas.width = 1080;
+  confCanvas.height = 1920;
+  let confettiPieces = [];
+
+  function triggerConfetti() {
+    confettiPieces = [];
+    const colors = ['#2ed573', '#7bed9f', '#ffd32a', '#ffa502', '#ffffff', '#70a1ff'];
+    for (let i = 0; i < 120; i++) {
+      confettiPieces.push({
+        x: 540 + (Math.random() - 0.5) * 400,
+        y: 800 + (Math.random() - 0.5) * 200,
+        vx: (Math.random() - 0.5) * 22,
+        vy: -Math.random() * 20 - 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 14 + 6,
+        alpha: 1,
+        rotation: Math.random() * 360,
+        spin: (Math.random() - 0.5) * 15
+      });
+    }
+  }
+
+  function renderConfetti() {
+    confCtx.clearRect(0, 0, 1080, 1920);
+    confettiPieces.forEach((p, idx) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.65; // gravity
+      p.alpha -= 0.016;
+      p.rotation += p.spin;
+
+      if (p.alpha > 0) {
+        confCtx.save();
+        confCtx.translate(p.x, p.y);
+        confCtx.rotate((p.rotation * Math.PI) / 180);
+        confCtx.fillStyle = p.color;
+        confCtx.globalAlpha = Math.max(0, p.alpha);
+        confCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.5);
+        confCtx.restore();
+      } else {
+        confettiPieces.splice(idx, 1);
+      }
+    });
+    requestAnimationFrame(renderConfetti);
+  }
+  renderConfetti();
+
+  // Number Counter Animation Helper
+  function animateValue(id, start, end, duration, prefix="", suffix="") {
+    const el = document.getElementById(id);
+    let startTimestamp = null;
+    function step(timestamp) {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const val = Math.floor(progress * (end - start) + start);
+      el.textContent = prefix + val.toLocaleString() + suffix;
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function switchScene(sceneNum, badgeText, subText) {
+    document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+    document.getElementById(`scene-${sceneNum}`).classList.add('active');
+    document.getElementById('badge-text').textContent = badgeText;
+    document.getElementById('sub-text').textContent = subText;
+  }
+
+  // Timeline events:
+  // 0.0s: Scene 1 (Hook)
+  // 4.63s: Scene 2 (Salary)
+  setTimeout(() => {
+    switchScene(2, "💰 ROUND 1: SALARY 💰", "Germany takes the lead with $4,500!");
+    animateValue("val-s2-jp", 0, 3200, 1000, "$");
+    document.getElementById("bar-s2-jp").style.width = "71%";
+    
+    // Germany winner reveal at +2.8s (7.43s mark)
+    setTimeout(() => {
+      animateValue("val-s2-de", 0, 4500, 1000, "$");
+      document.getElementById("bar-s2-de").style.width = "100%";
+      document.getElementById("card-s2-de").classList.add("winner");
+      document.getElementById("badge-s2-de").textContent = "🏆 WINNER (+40%)";
+      triggerConfetti();
+    }, 2800);
+  }, 4630);
+
+  // 12.77s: Scene 3 (Work-Life)
+  setTimeout(() => {
+    switchScene(3, "⏰ ROUND 2: WORK-LIFE ⏰", "Germans work 260 fewer hours per year!");
+    animateValue("val-s3-jp", 0, 1607, 1000, "", " hrs");
+    document.getElementById("bar-s3-jp").style.width = "100%";
+
+    // Germany winner reveal at +3.0s (15.77s mark)
+    setTimeout(() => {
+      animateValue("val-s3-de", 0, 1341, 1000, "", " hrs");
+      document.getElementById("bar-s3-de").style.width = "83%";
+      document.getElementById("card-s3-de").classList.add("winner");
+      document.getElementById("badge-s3-de").textContent = "🏆 WINNER (MORE FREE TIME)";
+      triggerConfetti();
+    }, 3000);
+  }, 12770);
+
+  // 22.06s: Scene 4 (Safety)
+  setTimeout(() => {
+    switchScene(4, "🛡️ ROUND 3: SAFETY 🛡️", "Japan destroys Germany in Safety!");
+    animateValue("val-s4-de", 0, 20, 1000, "#");
+    document.getElementById("bar-s4-de").style.width = "65%";
+
+    // Japan winner reveal at +2.6s (24.66s mark)
+    setTimeout(() => {
+      animateValue("val-s4-jp", 0, 9, 1000, "#");
+      document.getElementById("bar-s4-jp").style.width = "95%";
+      document.getElementById("card-s4-jp").classList.add("winner");
+      document.getElementById("badge-s4-jp").textContent = "🏆 WINNER (TOP 10 SAFEST)";
+      triggerConfetti();
+    }, 2600);
+  }, 22060);
+
+  // 29.91s: Scene 5 (Call to action)
+  setTimeout(() => {
+    switchScene(5, "🔥 FINAL VERDICT 🔥", "Which one are you picking? Comment below!");
+  }, 29910);
+</script>
+
+</body>
+</html>
