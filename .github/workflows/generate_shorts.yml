@@ -48,12 +48,20 @@ jobs:
         run: |
           START_ID="${{ github.event.inputs.start_id }}"
           END_ID="${{ github.event.inputs.end_id }}"
+          
+          # Jika berjalan otomatis via Cron harian, rotasi otomatis topik 1 s/d 30
           if [ -z "$START_ID" ]; then
-            START_ID=1
+            DAY_NUM=$(date +%j | sed 's/^0*//')
+            AUTO_ID=$(( (DAY_NUM % 30) + 1 ))
+            START_ID=$AUTO_ID
+            END_ID=$AUTO_ID
+            echo "Cron Schedule Active: Automatically selected Topic #$AUTO_ID for today!"
           fi
+          
           if [ -z "$END_ID" ]; then
-            END_ID=1
+            END_ID=$START_ID
           fi
+          
           echo "Rendering topics from $START_ID to $END_ID..."
           python batch_shorts_factory.py $START_ID $END_ID
 
