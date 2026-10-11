@@ -73,8 +73,12 @@ def main():
         print("Skipping YouTube upload: service unavailable.")
         sys.exit(0)
 
-    # Find videos in output_batch
-    mp4_files = sorted(glob.glob(os.path.join(base, "output_batch", "*.mp4")))
+    # Allow passing specific file or folder
+    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+        mp4_files = [sys.argv[1]]
+    else:
+        # Find videos in output_batch
+        mp4_files = sorted(glob.glob(os.path.join(base, "output_batch", "*.mp4")))
     if not mp4_files:
         print("No videos found in output_batch to upload.")
         sys.exit(0)
@@ -93,13 +97,13 @@ def main():
             c1_name = topic["c1"]["name"]
             c2_name = topic["c2"]["name"]
             hook = topic["hook_text"]
-            title = f"{c1_name} vs {c2_name}: Who Has a Better Life? 🌍 #Shorts"
+            title = f"{c1_name} vs {c2_name}: Who Has a Better Life? #Shorts"
             description = (
                 f"{hook}\n\n"
                 f"Comparing real quality-of-life data between {c1_name} and {c2_name}!\n\n"
-                f"📊 ROUND 1: {topic['r1']['lbl']} -> {topic['r1']['c1_val']} vs {topic['r1']['c2_val']}\n"
-                f"📊 ROUND 2: {topic['r2']['lbl']} -> {topic['r2']['c1_val']} vs {topic['r2']['c2_val']}\n"
-                f"📊 ROUND 3: {topic['r3']['lbl']} -> {topic['r3']['c1_val']} vs {topic['r3']['c2_val']}\n\n"
+                f"ROUND 1: {topic['r1']['lbl']}: {topic['r1']['c1_val']} vs {topic['r1']['c2_val']}\n"
+                f"ROUND 2: {topic['r2']['lbl']}: {topic['r2']['c1_val']} vs {topic['r2']['c2_val']}\n"
+                f"ROUND 3: {topic['r3']['lbl']}: {topic['r3']['c1_val']} vs {topic['r3']['c2_val']}\n\n"
                 f"Which country would you rather live in? Drop a comment below!\n\n"
                 f"#Shorts #Geography #GeoFacts #Comparison #DataFlux #Viral"
             )
@@ -111,6 +115,10 @@ def main():
             title = f"{basename.replace('.mp4', '').replace('_', ' ')} #Shorts"
             description = "Quality of life country comparison! #Shorts #GeoFacts #DataFlux"
             tags = ["shorts", "geofacts", "geography", "comparison", "dataflux"]
+
+        # YouTube strictly forbids < and > in title and description
+        title = title.replace("<", "").replace(">", "")
+        description = description.replace("<", "").replace(">", "")
 
         try:
             upload_video(yt, f, title, description, tags)
