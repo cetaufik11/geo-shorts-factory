@@ -10,6 +10,7 @@ test_rec_flight/
 *.mp4
 *.webm
 *.wav
+!sfx/*.wav
 
 # Audio temp
 audio/*.wav
